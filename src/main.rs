@@ -19,7 +19,7 @@ fn decode_bencoded_value(encoded_value: &str) -> Result<(serde_json::Value, &str
         Some('i') => {
             // Example: "i42e" -> 42
             let end_index = encoded_value.find('e').ok_or_else(|| anyhow!("No end found"))?;
-            let number = (&encoded_value[1..end_index]).parse::<usize>()?;
+            let number = (&encoded_value[1..end_index]).parse::<i64>()?;
             return Ok((serde_json::Value::Number(number.into()), &encoded_value[end_index + 1..]));
         }
         // If encoded_value starts with an 'l', it's a list
@@ -71,6 +71,11 @@ mod tests {
     #[test]
     fn test_decode_bencoded_value_with_number() {
         assert_eq!(decode_bencoded_value("i42e").unwrap().0, serde_json::Value::Number(serde_json::Number::from(42)));
+    }
+
+    #[test]
+    fn test_decode_bencoded_value_with_negative_number() {
+        assert_eq!(decode_bencoded_value("i-42e").unwrap().0, serde_json::Value::Number(serde_json::Number::from(-42)));
     }
 
     #[test]
