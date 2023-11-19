@@ -40,6 +40,11 @@ fn main() -> Result<()> {
             }
             let info_hash = calculate_info_hash(&torrent.info)?;
             println!("Info Hash: {}", hex::encode(info_hash));
+            println!("Piece Length: {}", torrent.info.piece_length);
+            println!("Piece Hashes:");
+            for hash in torrent.info.pieces.0 {
+                println!("{}", hex::encode(hash));
+            }
         }
         _ => { println!("unknown command: {}", command) }
     }
