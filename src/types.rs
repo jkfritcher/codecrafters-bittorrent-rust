@@ -1,13 +1,13 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use hashes::Hashes;
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Torrent {
     pub announce: String,
     pub info: Info,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Info {
     pub name: String,
     #[serde(rename = "piece length")]
@@ -17,21 +17,21 @@ pub struct Info {
     pub files: Files,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum Files {
     Single { length: usize },
     Multiple { files: Vec<File> },
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct File {
     pub length: usize,
     pub path: Vec<String>,
 }
 
 mod hashes {
-    use serde::{Deserialize, Deserializer, de::Visitor};
+    use serde::{Deserialize, Deserializer, Serialize, de::Visitor};
     use std::fmt;
 
     #[derive(Debug, Clone)]
@@ -42,6 +42,16 @@ mod hashes {
             D: Deserializer<'de>,
         {
             deserializer.deserialize_bytes(HashesVisitor)
+        }
+    }
+
+    impl Serialize for Hashes {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: serde::Serializer,
+        {
+            let slice = self.0.concat();
+            serializer.serialize_bytes(&slice)
         }
     }
 
