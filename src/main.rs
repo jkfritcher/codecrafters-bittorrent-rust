@@ -3,7 +3,7 @@ use anyhow::{anyhow, Result};
 use reqwest;
 use serde_bencode;
 use sha1::Digest;
-use std::{env, fs, net::SocketAddrV4};
+use std::{env, fs, io::{Read, Write}, net::{SocketAddrV4, TcpStream}};
 
 mod decoder;
 mod types;
@@ -41,8 +41,6 @@ fn get_peers_from_tracker(announce_url: String, info_hash: &[u8; 20], left: usiz
     url.push_str("&downloaded=0");
     url.push_str(format!("&left={}", left).as_str());
     url.push_str("&compact=1");
-
-    println!("Url: {}", url);
 
     let response = reqwest::blocking::get(&url)?.bytes()?;
     let response: TrackerResponse = serde_bencode::from_bytes(&response)?;
@@ -92,6 +90,29 @@ fn main() -> Result<()> {
             for peer in peers {
                 println!("{}:{}", peer.ip(), peer.port());
             }
+        }
+        "handshake" => {
+            let torrent_name = &args[2];
+            let peer_ip = &args[3];
+            let peer_port = &args[4];
+
+            let encoded_value = fs::read(torrent_name)?;
+            let torrent: Torrent = serde_bencode::from_bytes(&encoded_value)?;
+            let info_hash = calculate_info_hash(&torrent.info)?;
+
+            let peer_addr = format!("{}:{}", peer_ip, peer_port);
+            let mut stream = TcpStream::connect(peer_addr)?;
+            stream.write_all(&[19])?;
+            stream.write_all(b"BitTorrent protocol")?;
+            stream.write_all(&[0; 8])?;
+            stream.write_all(&info_hash)?;
+            stream.write_all(b"01234567890123456789")?;
+            let mut handshake = [0; 68];
+            stream.read_exact(&mut handshake)?;
+            if info_hash != handshake[28..48] {
+                return Err(anyhow!("Peer sent wrong info hash"));
+            }
+            println!("Peer ID: {}", hex::encode(handshake[48..68].to_vec()));
         }
         _ => { println!("unknown command: {}", command) }
     }
