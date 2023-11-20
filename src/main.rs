@@ -93,14 +93,12 @@ fn main() -> Result<()> {
         }
         "handshake" => {
             let torrent_name = &args[2];
-            let peer_ip = &args[3];
-            let peer_port = &args[4];
+            let peer_addr = &args[3];
 
             let encoded_value = fs::read(torrent_name)?;
             let torrent: Torrent = serde_bencode::from_bytes(&encoded_value)?;
             let info_hash = calculate_info_hash(&torrent.info)?;
 
-            let peer_addr = format!("{}:{}", peer_ip, peer_port);
             let mut stream = TcpStream::connect(peer_addr)?;
             stream.write_all(&[19])?;
             stream.write_all(b"BitTorrent protocol")?;
