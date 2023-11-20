@@ -1,5 +1,4 @@
 use anyhow::{anyhow, Result};
-use serde_json;
 
 pub fn decode_bencoded_value(encoded_value: &str) -> Result<(serde_json::Value, &str)> {
     match encoded_value.chars().next() {
@@ -7,16 +6,16 @@ pub fn decode_bencoded_value(encoded_value: &str) -> Result<(serde_json::Value, 
         Some('0'..='9') => {
             // Example: "5:hello" -> "hello"
             let colon_index = encoded_value.find(':').ok_or_else(|| anyhow!("No colon found"))?;
-            let len = (&encoded_value[..colon_index]).parse::<usize>()?;
+            let len = (encoded_value[..colon_index]).parse::<usize>()?;
             let string = &encoded_value[colon_index + 1..colon_index + 1 + len];
-            return Ok((serde_json::Value::String(string.to_string()), &encoded_value[colon_index + 1 + len..]));
+            Ok((serde_json::Value::String(string.to_string()), &encoded_value[colon_index + 1 + len..]))
         }
         // If encoded_value starts with an 'i', it's a number
         Some('i') => {
             // Example: "i42e" -> 42
             let end_index = encoded_value.find('e').ok_or_else(|| anyhow!("No end found"))?;
-            let number = (&encoded_value[1..end_index]).parse::<i64>()?;
-            return Ok((serde_json::Value::Number(number.into()), &encoded_value[end_index + 1..]));
+            let number = (encoded_value[1..end_index]).parse::<i64>()?;
+            Ok((serde_json::Value::Number(number.into()), &encoded_value[end_index + 1..]))
         }
         // If encoded_value starts with an 'l', it's a list
         Some('l') => {
@@ -24,11 +23,11 @@ pub fn decode_bencoded_value(encoded_value: &str) -> Result<(serde_json::Value, 
             let mut encoded_value = &encoded_value[1..];
             let mut list = Vec::new();
             let mut decoded_value;
-            while encoded_value.chars().next() != Some('e') {
+            while !encoded_value.starts_with('e') {
                 (decoded_value, encoded_value) = decode_bencoded_value(encoded_value)?;
                 list.push(decoded_value);
             }
-            return Ok((serde_json::Value::Array(list), &encoded_value[1..]));
+            Ok((serde_json::Value::Array(list), &encoded_value[1..]))
         }
         // If encoded_value starts with a 'd', it's a dict
         Some('d') => {
@@ -37,18 +36,18 @@ pub fn decode_bencoded_value(encoded_value: &str) -> Result<(serde_json::Value, 
             let mut dict = serde_json::Map::new();
             let mut key;
             let mut decoded_value;
-            while encoded_value.chars().next() != Some('e') {
+            while !encoded_value.starts_with('e') {
                 (key, encoded_value) = decode_bencoded_value(encoded_value)?;
                 (decoded_value, encoded_value) = decode_bencoded_value(encoded_value)?;
                 dict.insert(key.as_str().unwrap().to_string(), decoded_value);
             }
-            return Ok((serde_json::Value::Object(dict), &encoded_value[1..]));
+            Ok((serde_json::Value::Object(dict), &encoded_value[1..]))
         }
         Some(_) => {
-            return Err(anyhow!("Unhandled encoded value: {}", encoded_value));
+            Err(anyhow!("Unhandled encoded value: {}", encoded_value))
         }
         None => {
-            return Err(anyhow!("Empty encoded value"));
+            Err(anyhow!("Empty encoded value"))
         }
     }
 }

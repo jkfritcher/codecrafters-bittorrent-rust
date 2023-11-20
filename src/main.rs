@@ -1,7 +1,5 @@
 #[allow(unused_imports)]
 use anyhow::{anyhow, Result};
-use reqwest;
-use serde_bencode;
 use sha1::Digest;
 use std::{env, fs, io::{Read, Write}, net::{SocketAddrV4, TcpStream}};
 
@@ -15,7 +13,7 @@ fn calculate_info_hash(info: &Info) -> Result<[u8; 20]> {
     let encoded_info = serde_bencode::to_bytes(info)?;
     let mut hasher = sha1::Sha1::new();
     hasher.update(&encoded_info);
-    return Ok(hasher.finalize().into());
+    Ok(hasher.finalize().into())
 }
 
 fn urlencode_info_hash(info_hash: &[u8; 20]) -> String {
@@ -23,16 +21,16 @@ fn urlencode_info_hash(info_hash: &[u8; 20]) -> String {
     for byte in info_hash {
         escaped_info_hash.push_str(format!("%{:02X}", byte).as_str());
     }
-    return escaped_info_hash;
+    escaped_info_hash
 }
 
 fn get_peers_from_tracker(announce_url: String, info_hash: &[u8; 20], left: usize) -> Result<Vec<SocketAddrV4>> {
     // Build url with query parameters
     let mut url = announce_url;
-    if url.contains("?") {
-        url.push_str("&");
+    if url.contains('?') {
+        url.push('&');
     } else {
-        url.push_str("?");
+        url.push('?');
     }
     url.push_str(format!("info_hash={}", urlencode_info_hash(info_hash)).as_str());
     url.push_str("&peer_id=00112233445566778899");
@@ -45,7 +43,7 @@ fn get_peers_from_tracker(announce_url: String, info_hash: &[u8; 20], left: usiz
     let response = reqwest::blocking::get(&url)?.bytes()?;
     let response: TrackerResponse = serde_bencode::from_bytes(&response)?;
 
-    return Ok(response.peers.0);
+    Ok(response.peers.0)
 }
 
 fn main() -> Result<()> {
@@ -110,9 +108,15 @@ fn main() -> Result<()> {
             if info_hash != handshake[28..48] {
                 return Err(anyhow!("Peer sent wrong info hash"));
             }
-            println!("Peer ID: {}", hex::encode(handshake[48..68].to_vec()));
+            println!("Peer ID: {}", hex::encode(&handshake[48..68]));
+        }
+        "download_piece" => {
+            unimplemented!();
+        }
+        "download" => {
+            unimplemented!();
         }
         _ => { println!("unknown command: {}", command) }
     }
-    return Ok(());
+    Ok(())
 }
