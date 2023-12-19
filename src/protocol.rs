@@ -114,6 +114,7 @@ pub fn download_piece(stream: &mut TcpStream, piece_index: u32, piece_length: u3
         stream.write_all(&buf)?;
     }
 
+    // Receive chunks
     let chunks_to_receive = if last_chunk_len > 0 { whole_chunks + 1 } else { whole_chunks };
     let mut recv_buf: Vec<u8> = vec![0u8; (CHUNK_LEN + 9) as usize];
     for _ in 0..chunks_to_receive {
@@ -150,6 +151,7 @@ pub fn download_piece(stream: &mut TcpStream, piece_index: u32, piece_length: u3
         piece[offset..offset+chunk_len].copy_from_slice(&recv_buf[9..9+chunk_len]);
     }
 
+    // Verify piece hash
     let mut hasher = sha1::Sha1::new();
     hasher.update(&piece);
     let new_piece_hash = hasher.finalize();

@@ -94,5 +94,41 @@ pub fn cmd_download_piece(output_name: &str, torrent_name: &str, piece_num: &str
 
 #[allow(unused_variables)]
 pub fn cmd_download(output_name: &str, torrent_name: &str) -> Result<()> {
-    unimplemented!()
+    let encoded_value = fs::read(torrent_name)?;
+    let torrent: Torrent = serde_bencode::from_bytes(&encoded_value)?;
+    let info_hash = torrent.info.calculate_info_hash()?;
+    let left = torrent.info.files.length();
+
+    let peers = get_peers_from_tracker(torrent.announce, &info_hash, left)?;
+    let peer = peers[0];
+    let mut stream = TcpStream::connect(peer)?;
+    let _ = perform_handshake_with_peer(&mut stream, &info_hash)?;
+
+    let bitfield = wait_for_bitfield(&mut stream)?;
+    let bitfield_bytes = (torrent.info.pieces.0.len() + 7) / 8;
+    if bitfield_bytes != bitfield.len() {
+        return Err(anyhow!(
+            "Expected bitfield of length {}, got {}", bitfield_bytes, bitfield.len()
+        ));
+    }
+    eprintln!("Bitfield: {}", hex::encode(&bitfield));
+
+    send_am_interested(&mut stream)?;
+
+    wait_for_unchoke(&mut stream)?;
+
+    let mut file = fs::OpenOptions::new().write(true).create(true).truncate(true).open(output_name)?;
+    let num_pieces = torrent.info.pieces.0.len();
+    for i in 0..num_pieces {
+        let piece_index = i as u32;
+        let piece_length = (torrent.info.piece_length) as u32;
+        let piece_length = cmp::min(piece_length, (torrent.info.files.length() as u32) - piece_index * piece_length);
+        let expected_piece_hash = &torrent.info.pieces.0[piece_index as usize];
+        let piece_data = download_piece(&mut stream, piece_index, piece_length, expected_piece_hash)?;
+
+        file.write_all(&piece_data)?;
+    }
+    file.sync_all()?;
+
+    Ok(())
 }
